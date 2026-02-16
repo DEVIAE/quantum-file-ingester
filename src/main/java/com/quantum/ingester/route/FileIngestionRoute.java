@@ -34,7 +34,7 @@ public class FileIngestionRoute extends RouteBuilder {
                 .routeId("file-ingestion-route")
                 .log(LoggingLevel.INFO, "Started processing file: ${header.CamelFileName}")
                 .process(fileValidationProcessor)
-                .split(body().tokenize("\n", QueueConstants.DEFAULT_CHUNK_SIZE))
+                .split(body().tokenize("\n", QueueConstants.DEFAULT_CHUNK_SIZE, false))
                     .streaming()
                     .parallelProcessing(false)
                     .process(chunkMetadataProcessor)

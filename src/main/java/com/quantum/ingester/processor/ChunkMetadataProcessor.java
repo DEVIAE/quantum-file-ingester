@@ -10,22 +10,25 @@ import org.springframework.stereotype.Component;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Component
 public class ChunkMetadataProcessor implements Processor {
 
-    private final AtomicInteger chunkCounter = new AtomicInteger(0);
+    private final ConcurrentHashMap<String, AtomicInteger> fileCounters = new ConcurrentHashMap<>();
 
     @Override
     public void process(Exchange exchange) throws Exception {
         String body = exchange.getIn().getBody(String.class);
         String fileName = exchange.getIn().getHeader("CamelFileName", String.class);
 
-        int chunkIndex = chunkCounter.getAndIncrement();
+        AtomicInteger counter = fileCounters.computeIfAbsent(fileName, k -> new AtomicInteger(0));
+        int chunkIndex = counter.getAndIncrement();
 
+        // CamelSplitSize = total number of split parts (available from 2nd iteration onward)
         Integer splitSize = exchange.getProperty("CamelSplitSize", Integer.class);
-        int totalChunks = splitSize != null ? splitSize / QueueConstants.DEFAULT_CHUNK_SIZE + 1 : -1;
+        int totalChunks = splitSize != null ? splitSize : -1;
 
         List<String> lines = Arrays.asList(body.split("\n"));
         String chunkId = ChunkIdGenerator.generate(fileName, chunkIndex);
@@ -47,6 +50,6 @@ public class ChunkMetadataProcessor implements Processor {
     }
 
     public void resetCounter() {
-        chunkCounter.set(0);
+        fileCounters.clear();
     }
 }

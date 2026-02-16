@@ -15,6 +15,9 @@ target/
 .DS_Store
 Thumbs.db
 
+# Logs
+logs/
+
 # Maven
 .mvn/timing.properties
 .mvn/wrapper/MavenWrapperDownloader.java
