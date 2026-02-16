@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: file-ingester
-        image: file-ingester:latest
+        image: image-registry.openshift-image-registry.svc:5000/felipesoto-dev/file-ingester:latest
         ports:
         - containerPort: 8081
         env:
@@ -52,15 +52,20 @@ spec:
           limits:
             memory: "1Gi"
             cpu: "500m"
+        startupProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          failureThreshold: 12
         livenessProbe:
           httpGet:
             path: /actuator/health
             port: 8081
-          initialDelaySeconds: 60
           periodSeconds: 10
         readinessProbe:
           httpGet:
             path: /actuator/health
             port: 8081
-          initialDelaySeconds: 30
           periodSeconds: 5

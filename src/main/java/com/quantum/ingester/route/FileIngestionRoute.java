@@ -30,7 +30,7 @@ public class FileIngestionRoute extends RouteBuilder {
                                 .log(LoggingLevel.ERROR, "Failed to process file: ${exception.message}")
                                 .to("direct:error-handler");
 
-                from("file:{{ingester.input-dir}}?noop={{ingester.noop}}&streamDownload=true&readLock=changed&readLockTimeout=30000")
+                from("file:{{ingester.input-dir}}?noop={{ingester.noop}}&readLock=changed&readLockTimeout=30000")
                                 .routeId("file-ingestion-route")
                                 .log(LoggingLevel.INFO, "Started processing file: ${header.CamelFileName}")
                                 .process(fileValidationProcessor)
