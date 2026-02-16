@@ -1,10 +1,14 @@
 package com.quantum.ingester.route;
 
 import com.quantum.common.config.QueueConstants;
+import com.quantum.common.model.Chunk;
 import com.quantum.ingester.processor.ChunkMetadataProcessor;
 import com.quantum.ingester.processor.FileValidationProcessor;
 import org.apache.camel.LoggingLevel;
 import org.apache.camel.builder.RouteBuilder;
+import org.apache.camel.component.jackson.JacksonDataFormat;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -22,6 +26,10 @@ public class FileIngestionRoute extends RouteBuilder {
         @Override
         public void configure() throws Exception {
 
+                JacksonDataFormat jacksonDataFormat = new JacksonDataFormat(Chunk.class);
+                jacksonDataFormat.addModule(new JavaTimeModule());
+                jacksonDataFormat.disableFeature(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
                 onException(Exception.class)
                                 .maximumRedeliveries(QueueConstants.MAX_REDELIVERY_ATTEMPTS)
                                 .redeliveryDelay(QueueConstants.REDELIVERY_DELAY_MS)
@@ -38,7 +46,8 @@ public class FileIngestionRoute extends RouteBuilder {
                                 .streaming()
                                 .parallelProcessing(false)
                                 .process(chunkMetadataProcessor)
-                                .marshal().json()
+                                .marshal(jacksonDataFormat)
+                                .convertBodyTo(String.class)
                                 .to("jms:queue:" + QueueConstants.CHUNK_QUEUE
                                                 + "?deliveryPersistent=true"
                                                 + "&explicitQosEnabled=true"

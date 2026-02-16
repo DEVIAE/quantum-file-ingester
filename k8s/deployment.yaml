@@ -45,6 +45,11 @@ spec:
             configMapKeyRef:
               name: file-ingester-config
               key: CHUNK_SIZE
+        - name: INPUT_DIR
+          valueFrom:
+            configMapKeyRef:
+              name: file-ingester-config
+              key: INPUT_DIR
         resources:
           requests:
             memory: "512Mi"
