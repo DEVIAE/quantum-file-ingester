@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: file-ingester
+  labels:
+    app: file-ingester
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: file-ingester
+  template:
+    metadata:
+      labels:
+        app: file-ingester
+    spec:
+      containers:
+      - name: file-ingester
+        image: file-ingester:latest
+        ports:
+        - containerPort: 8081
+        env:
+        - name: AMQ_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: file-ingester-config
+              key: AMQ_HOST
+        - name: AMQ_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: file-ingester-config
+              key: AMQ_PORT
+        - name: AMQ_USER
+          valueFrom:
+            secretKeyRef:
+              name: amq-credentials
+              key: username
+        - name: AMQ_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: amq-credentials
+              key: password
+        - name: CHUNK_SIZE
+          valueFrom:
+            configMapKeyRef:
+              name: file-ingester-config
+              key: CHUNK_SIZE
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "100m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8081
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 5

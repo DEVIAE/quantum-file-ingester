@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: file-ingester-config
+data:
+  INPUT_DIR: "/data/input"
+  CHUNK_SIZE: "10000"
+  AMQ_HOST: "amq-broker-hdls-svc"
+  AMQ_PORT: "61616"
+  SERVER_PORT: "8081"

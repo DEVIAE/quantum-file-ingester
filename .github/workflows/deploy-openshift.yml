@@ -1,0 +1,75 @@
+name: Deploy to OpenShift
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+env:
+  OPENSHIFT_SERVER: https://api.rm1.0a51.p1.openshiftapps.com:6443
+  OPENSHIFT_PROJECT: felipesoto-dev
+  SERVICE_NAME: file-ingester
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: maven
+    
+    - name: Configure Maven for GitHub Packages
+      run: |
+        mkdir -p ~/.m2
+        cat > ~/.m2/settings.xml << 'EOF'
+        <settings>
+          <servers>
+            <server>
+              <id>github</id>
+              <username>${{ github.actor }}</username>
+              <password>${{ secrets.GITHUB_TOKEN }}</password>
+            </server>
+          </servers>
+        </settings>
+        EOF
+    
+    - name: Build with Maven
+      run: mvn clean package -DskipTests
+    
+    - name: Install OpenShift CLI
+      uses: redhat-actions/openshift-tools-installer@v1
+      with:
+        oc: latest
+    
+    - name: Login to OpenShift
+      run: |
+        oc login --token=${{ secrets.OPENSHIFT_TOKEN }} --server=${{ env.OPENSHIFT_SERVER }}
+        oc project ${{ env.OPENSHIFT_PROJECT }}
+    
+    - name: Build and Deploy
+      run: |
+        if oc get bc/${{ env.SERVICE_NAME }} &>/dev/null; then
+          oc start-build ${{ env.SERVICE_NAME }} --from-dir=. --follow --wait
+        else
+          oc new-build --name=${{ env.SERVICE_NAME }} --binary --strategy=docker
+          oc start-build ${{ env.SERVICE_NAME }} --from-dir=. --follow --wait
+          oc new-app ${{ env.SERVICE_NAME }}
+          oc apply -f k8s/
+        fi
+    
+    - name: Wait for deployment
+      run: oc rollout status deployment/${{ env.SERVICE_NAME }} --timeout=5m
+    
+    - name: Verify deployment
+      run: |
+        echo "=== Pods Status ==="
+        oc get pods -l app=${{ env.SERVICE_NAME }}
+        echo "=== Service ==="
+        oc get svc ${{ env.SERVICE_NAME }}
