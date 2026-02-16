@@ -26,7 +26,8 @@ public class ChunkMetadataProcessor implements Processor {
         AtomicInteger counter = fileCounters.computeIfAbsent(fileName, k -> new AtomicInteger(0));
         int chunkIndex = counter.getAndIncrement();
 
-        // CamelSplitSize = total number of split parts (available from 2nd iteration onward)
+        // CamelSplitSize = total number of split parts (available from 2nd iteration
+        // onward)
         Integer splitSize = exchange.getProperty("CamelSplitSize", Integer.class);
         int totalChunks = splitSize != null ? splitSize : -1;
 
@@ -39,8 +40,7 @@ public class ChunkMetadataProcessor implements Processor {
                 totalChunks,
                 fileName,
                 Instant.now(),
-                lines
-        );
+                lines);
 
         exchange.getIn().setBody(chunk);
         exchange.getIn().setHeader("chunkId", chunkId);
