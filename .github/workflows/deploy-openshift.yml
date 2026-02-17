@@ -14,6 +14,10 @@ jobs:
     build-and-deploy:
         runs-on: ubuntu-latest
 
+        permissions:
+            contents: read
+            packages: read
+
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
@@ -26,13 +30,13 @@ jobs:
                   cache: maven
                   server-id: github
                   server-username: GITHUB_ACTOR
-                  server-password: GH_PACKAGES_TOKEN
+                  server-password: GITHUB_TOKEN
 
             - name: Build with Maven
               run: mvn clean package -DskipTests
               env:
                   GITHUB_ACTOR: ${{ github.actor }}
-                  GH_PACKAGES_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
             - name: Install OpenShift CLI
               uses: redhat-actions/openshift-tools-installer@v1
