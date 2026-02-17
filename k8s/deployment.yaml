@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: file-ingester
-        image: file-ingester:latest
+        image: image-registry.openshift-image-registry.svc:5000/felipesoto-dev/file-ingester:latest
         ports:
         - containerPort: 8081
         env:
@@ -45,22 +45,32 @@ spec:
             configMapKeyRef:
               name: file-ingester-config
               key: CHUNK_SIZE
+        - name: INPUT_DIR
+          valueFrom:
+            configMapKeyRef:
+              name: file-ingester-config
+              key: INPUT_DIR
         resources:
           requests:
-            memory: "512Mi"
-            cpu: "100m"
-          limits:
             memory: "1Gi"
-            cpu: "500m"
+            cpu: "200m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+        startupProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          failureThreshold: 12
         livenessProbe:
           httpGet:
             path: /actuator/health
             port: 8081
-          initialDelaySeconds: 60
           periodSeconds: 10
         readinessProbe:
           httpGet:
             path: /actuator/health
             port: 8081
-          initialDelaySeconds: 30
           periodSeconds: 5

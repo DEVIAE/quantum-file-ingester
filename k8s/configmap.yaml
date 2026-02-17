@@ -5,6 +5,6 @@ metadata:
 data:
   INPUT_DIR: "/data/input"
   CHUNK_SIZE: "10000"
-  AMQ_HOST: "amq-broker-hdls-svc"
+  AMQ_HOST: "amq-broker"
   AMQ_PORT: "61616"
   SERVER_PORT: "8081"
