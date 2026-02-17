@@ -22,5 +22,7 @@ ENTRYPOINT ["java", \
   "-XX:+UseG1GC", \
   "-XX:MaxRAMPercentage=75.0", \
   "-XX:+ExitOnOutOfMemoryError", \
+  "-XX:+UseStringDeduplication", \
+  "-XX:G1HeapRegionSize=4m", \
   "-Djava.security.egd=file:/dev/./urandom", \
   "-jar", "app.jar"]

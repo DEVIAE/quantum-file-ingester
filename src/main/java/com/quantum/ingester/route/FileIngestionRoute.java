@@ -44,6 +44,7 @@ public class FileIngestionRoute extends RouteBuilder {
                                 .process(fileValidationProcessor)
                                 .split(body().tokenize("\n", QueueConstants.DEFAULT_CHUNK_SIZE, false))
                                 .streaming()
+                                .stopOnException()
                                 .parallelProcessing(false)
                                 .process(chunkMetadataProcessor)
                                 .marshal(jacksonDataFormat)
@@ -55,6 +56,10 @@ public class FileIngestionRoute extends RouteBuilder {
                                 .log(LoggingLevel.DEBUG,
                                                 "Sent chunk ${header.chunkIndex} of file ${header.CamelFileName}")
                                 .end()
+                                .process(exchange -> {
+                                        String fileName = exchange.getIn().getHeader("CamelFileName", String.class);
+                                        chunkMetadataProcessor.cleanupCounter(fileName);
+                                })
                                 .log(LoggingLevel.INFO,
                                                 "Completed splitting file: ${header.CamelFileName} into ${header.totalChunks} chunks");
 
