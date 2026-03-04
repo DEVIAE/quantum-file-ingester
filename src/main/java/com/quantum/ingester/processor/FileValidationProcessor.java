@@ -1,5 +1,6 @@
 package com.quantum.ingester.processor;
 
+import com.quantum.common.util.LoggingUtils;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.component.file.GenericFile;
@@ -20,7 +21,8 @@ public class FileValidationProcessor implements Processor {
     public void process(Exchange exchange) throws Exception {
         String fileName = exchange.getIn().getHeader("CamelFileName", String.class);
 
-        // Use header for file size — do NOT read the body (avoids loading entire file into memory)
+        // Use header for file size — do NOT read the body (avoids loading entire file
+        // into memory)
         Long fileSize = exchange.getIn().getHeader("CamelFileLength", Long.class);
 
         if (fileSize == null) {
@@ -43,6 +45,11 @@ public class FileValidationProcessor implements Processor {
 
         // Store fileSize in header for downstream processors
         exchange.getIn().setHeader("fileSize", fileSize);
+
+        // R21: Audit log for file ingestion
+        LoggingUtils.audit("FILE_VALIDATED", fileName,
+                "SUCCESS", "File validated: size=" + fileSize + " bytes");
+
         log.info("Validated file: {} (size: {} bytes)", fileName, fileSize);
     }
 }

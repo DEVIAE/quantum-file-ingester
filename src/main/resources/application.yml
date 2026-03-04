@@ -27,8 +27,16 @@ management:
 server:
   port: ${SERVER_PORT:8081}
 
+# ELK Configuration (R1, R2, R3)
+elk:
+  logstash:
+    host: ${LOGSTASH_HOST:localhost}
+    port: ${LOGSTASH_PORT:5000}
+  enabled: ${ELK_ENABLED:true}
+
 logging:
   level:
     com.quantum: INFO
     org.apache.camel: INFO
     org.apache.activemq: WARN
+  config: classpath:logback-spring.xml

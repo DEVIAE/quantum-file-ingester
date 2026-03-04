@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ==========================================================================
+     Quantum File Ingester - Logback Configuration
+     R1: Pipeline de ingesta de logs a Elasticsearch via Logstash
+     R2: Procesamiento en tiempo real
+     R3: Campos indexados definidos
+     R21: Auditoria
+     ========================================================================== -->
+<configuration scan="true" scanPeriod="30 seconds">
+
+    <!-- Properties from Spring -->
+    <springProperty scope="context" name="APP_NAME" source="spring.application.name" defaultValue="quantum-file-ingester"/>
+    <springProperty scope="context" name="APP_PORT" source="server.port" defaultValue="8081"/>
+    <springProperty scope="context" name="LOGSTASH_HOST" source="elk.logstash.host" defaultValue="localhost"/>
+    <springProperty scope="context" name="LOGSTASH_PORT" source="elk.logstash.port" defaultValue="5000"/>
+
+    <!-- ===== Console Appender (development) ===== -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - [%X{correlationId}] [%X{chunkId}] %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- ===== Logstash TCP Appender (ELK) ===== -->
+    <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+        <destination>${LOGSTASH_HOST}:${LOGSTASH_PORT}</destination>
+        <reconnectionDelay>5 seconds</reconnectionDelay>
+        <keepAliveDuration>5 minutes</keepAliveDuration>
+
+        <!-- R3: Structured JSON con campos estandarizados -->
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <!-- Campos fijos del servicio -->
+            <customFields>{"serviceName":"${APP_NAME}","serviceVersion":"2.0.0-SNAPSHOT","serviceEnvironment":"${SPRING_PROFILES_ACTIVE:-local}"}</customFields>
+
+            <!-- Incluir MDC completo (chunkId, fileName, etc.) -->
+            <includeMdcKeyName>chunkId</includeMdcKeyName>
+            <includeMdcKeyName>fileName</includeMdcKeyName>
+            <includeMdcKeyName>chunkIndex</includeMdcKeyName>
+            <includeMdcKeyName>totalChunks</includeMdcKeyName>
+            <includeMdcKeyName>correlationId</includeMdcKeyName>
+            <includeMdcKeyName>traceId</includeMdcKeyName>
+            <includeMdcKeyName>spanId</includeMdcKeyName>
+            <includeMdcKeyName>processInstanceId</includeMdcKeyName>
+            <includeMdcKeyName>audit.action</includeMdcKeyName>
+            <includeMdcKeyName>audit.resource</includeMdcKeyName>
+            <includeMdcKeyName>audit.result</includeMdcKeyName>
+            <includeMdcKeyName>failure.service</includeMdcKeyName>
+            <includeMdcKeyName>failure.component</includeMdcKeyName>
+            <includeMdcKeyName>failure.operation</includeMdcKeyName>
+            <includeMdcKeyName>failure.timestamp</includeMdcKeyName>
+
+            <!-- Incluir stack traces completos -->
+            <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                <maxDepthPerThrowable>30</maxDepthPerThrowable>
+                <maxLength>2048</maxLength>
+                <shortenedClassNameLength>20</shortenedClassNameLength>
+                <rootCauseFirst>true</rootCauseFirst>
+            </throwableConverter>
+        </encoder>
+    </appender>
+
+    <!-- ===== Async wrapper para Logstash (non-blocking) ===== -->
+    <appender name="ASYNC_LOGSTASH" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="LOGSTASH"/>
+        <queueSize>512</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <includeCallerData>false</includeCallerData>
+        <neverBlock>true</neverBlock>
+    </appender>
+
+    <!-- ===== File Appender (fallback) ===== -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/${APP_NAME}.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>logs/${APP_NAME}-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>500MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - [%X{correlationId}] %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- ===== AUDIT Logger (R21) ===== -->
+    <appender name="AUDIT_LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+        <destination>${LOGSTASH_HOST}:5001</destination>
+        <reconnectionDelay>5 seconds</reconnectionDelay>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <customFields>{"serviceName":"${APP_NAME}","type":"quantum-audit"}</customFields>
+        </encoder>
+    </appender>
+
+    <logger name="AUDIT" level="INFO" additivity="false">
+        <appender-ref ref="AUDIT_LOGSTASH"/>
+        <appender-ref ref="CONSOLE"/>
+    </logger>
+
+    <!-- ===== Spring profiles ===== -->
+    <!-- Local: console + file + logstash (si disponible) -->
+    <springProfile name="local,default">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="FILE"/>
+            <appender-ref ref="ASYNC_LOGSTASH"/>
+        </root>
+    </springProfile>
+
+    <!-- Dev/Staging: logstash + file -->
+    <springProfile name="dev,staging">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="ASYNC_LOGSTASH"/>
+        </root>
+    </springProfile>
+
+    <!-- Production: solo logstash + file -->
+    <springProfile name="prod,production">
+        <root level="WARN">
+            <appender-ref ref="ASYNC_LOGSTASH"/>
+            <appender-ref ref="FILE"/>
+        </root>
+        <logger name="com.quantum" level="INFO"/>
+    </springProfile>
+
+    <!-- Loggers especificos -->
+    <logger name="com.quantum.ingester" level="INFO"/>
+    <logger name="org.apache.camel" level="INFO"/>
+    <logger name="org.apache.activemq" level="WARN"/>
+
+</configuration>
