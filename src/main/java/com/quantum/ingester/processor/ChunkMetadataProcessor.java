@@ -2,6 +2,7 @@ package com.quantum.ingester.processor;
 
 import com.quantum.common.model.Chunk;
 import com.quantum.common.util.ChunkIdGenerator;
+import com.quantum.common.util.LoggingUtils;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.slf4j.Logger;
@@ -29,7 +30,8 @@ public class ChunkMetadataProcessor implements Processor {
         AtomicInteger counter = fileCounters.computeIfAbsent(fileName, k -> new AtomicInteger(0));
         int chunkIndex = counter.getAndIncrement();
 
-        // CamelSplitSize = total number of split parts (available from 2nd iteration onward)
+        // CamelSplitSize = total number of split parts (available from 2nd iteration
+        // onward)
         Integer splitSize = exchange.getProperty("CamelSplitSize", Integer.class);
         int totalChunks = splitSize != null ? splitSize : -1;
 
@@ -51,6 +53,9 @@ public class ChunkMetadataProcessor implements Processor {
         exchange.getIn().setHeader("chunkIndex", chunkIndex);
         exchange.getIn().setHeader("totalChunks", totalChunks);
         exchange.getIn().setHeader("fileName", fileName);
+
+        // R3: Set MDC context for structured logging to ELK
+        LoggingUtils.setChunkContext(chunkId, fileName, chunkIndex, totalChunks);
 
         if (chunkIndex % 50 == 0) {
             log.info("Processing chunk {} of file {} ({} lines)", chunkIndex, fileName, lines.size());
@@ -88,6 +93,8 @@ public class ChunkMetadataProcessor implements Processor {
      */
     public void cleanupCounter(String fileName) {
         fileCounters.remove(fileName);
+        // R3: Clear MDC after file processing
+        LoggingUtils.clearChunkContext();
     }
 
     public void resetCounter() {
