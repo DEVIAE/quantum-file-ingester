@@ -114,6 +114,14 @@
         </root>
     </springProfile>
 
+    <!-- OpenShift/Kubernetes: solo CONSOLE (stdout capturado por la plataforma) -->
+    <springProfile name="openshift">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+        <logger name="com.quantum" level="INFO"/>
+    </springProfile>
+
     <!-- Production: solo logstash + file -->
     <springProfile name="prod,production">
         <root level="WARN">
