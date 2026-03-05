@@ -57,6 +57,14 @@ jobs:
       - name: Apply Kubernetes manifests
         run: oc apply -f k8s/
 
+      - name: Create secrets
+        run: |
+          # Create amq-credentials secret if not exists
+          oc get secret amq-credentials &>/dev/null || \
+            oc create secret generic amq-credentials \
+              --from-literal=username=admin \
+              --from-literal=password=admin
+
       - name: Configure environment
         run: |
           oc set env deployment/${{ env.SERVICE_NAME }} \
