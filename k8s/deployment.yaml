@@ -37,11 +37,13 @@ spec:
             secretKeyRef:
               name: amq-credentials
               key: username
+              optional: true
         - name: AMQ_PASSWORD
           valueFrom:
             secretKeyRef:
               name: amq-credentials
               key: password
+              optional: true
         - name: CHUNK_SIZE
           valueFrom:
             configMapKeyRef:
