@@ -44,7 +44,7 @@ jobs:
           oc login --token=${{ secrets.OPENSHIFT_TOKEN }} --server=${{ env.OPENSHIFT_SERVER }}
           oc project ${{ env.OPENSHIFT_PROJECT }}
 
-      - name: Build and Deploy
+      - name: Build Image
         run: |
           if oc get bc/${{ env.SERVICE_NAME }} &>/dev/null; then
             oc start-build ${{ env.SERVICE_NAME }} --from-dir=. --follow --wait
@@ -52,19 +52,21 @@ jobs:
             oc new-build --name=${{ env.SERVICE_NAME }} --binary --strategy=docker
             oc start-build ${{ env.SERVICE_NAME }} --from-dir=. --follow --wait
             oc new-app ${{ env.SERVICE_NAME }}
-            oc apply -f k8s/
           fi
 
-      - name: Wait for deployment
-        run: oc rollout status deployment/${{ env.SERVICE_NAME }} --timeout=5m
+      - name: Apply Kubernetes manifests
+        run: oc apply -f k8s/
 
-      - name: Configure ELK integration
+      - name: Configure environment
         run: |
-          # R24: Set ELK environment variables for the deployment
           oc set env deployment/${{ env.SERVICE_NAME }} \
+            SPRING_PROFILES_ACTIVE=openshift \
             LOGSTASH_HOST=logstash \
             LOGSTASH_PORT=5000 \
             ELK_ENABLED=true || true
+
+      - name: Wait for deployment
+        run: oc rollout status deployment/${{ env.SERVICE_NAME }} --timeout=5m
 
       - name: Verify deployment
         run: |
