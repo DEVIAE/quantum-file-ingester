@@ -10,7 +10,8 @@ WORKDIR /app
 COPY target/quantum-file-ingester-*.jar app.jar
 
 RUN mkdir -p /data/input /app/logs \
-  && chown -R quantum:quantum /data /app/logs
+  && chown -R quantum:0 /data /app /app/logs \
+  && chmod -R g+rwx /data /app/logs
 
 USER quantum
 
