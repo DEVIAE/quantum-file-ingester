@@ -17,6 +17,12 @@ management:
     web:
       exposure:
         include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  health:
+    jms:
+      enabled: false
   metrics:
     tags:
       application: file-ingester
