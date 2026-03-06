@@ -21,80 +21,82 @@
         </encoder>
     </appender>
 
-    <!-- ===== Logstash TCP Appender (ELK) ===== -->
-    <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
-        <destination>${LOGSTASH_HOST}:${LOGSTASH_PORT}</destination>
-        <reconnectionDelay>5 seconds</reconnectionDelay>
-        <keepAliveDuration>5 minutes</keepAliveDuration>
+    <!-- ===== Logstash & Audit appenders: solo para perfiles NO openshift ===== -->
+    <springProfile name="!openshift">
 
-        <!-- R3: Structured JSON con campos estandarizados -->
-        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
-            <!-- Campos fijos del servicio -->
-            <customFields>{"serviceName":"${APP_NAME}","serviceVersion":"2.0.0-SNAPSHOT","serviceEnvironment":"${SPRING_PROFILES_ACTIVE:-local}"}</customFields>
+        <!-- Logstash TCP Appender (ELK) -->
+        <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+            <destination>${LOGSTASH_HOST}:${LOGSTASH_PORT}</destination>
+            <reconnectionDelay>5 seconds</reconnectionDelay>
+            <keepAliveDuration>5 minutes</keepAliveDuration>
 
-            <!-- Incluir MDC completo (chunkId, fileName, etc.) -->
-            <includeMdcKeyName>chunkId</includeMdcKeyName>
-            <includeMdcKeyName>fileName</includeMdcKeyName>
-            <includeMdcKeyName>chunkIndex</includeMdcKeyName>
-            <includeMdcKeyName>totalChunks</includeMdcKeyName>
-            <includeMdcKeyName>correlationId</includeMdcKeyName>
-            <includeMdcKeyName>traceId</includeMdcKeyName>
-            <includeMdcKeyName>spanId</includeMdcKeyName>
-            <includeMdcKeyName>processInstanceId</includeMdcKeyName>
-            <includeMdcKeyName>audit.action</includeMdcKeyName>
-            <includeMdcKeyName>audit.resource</includeMdcKeyName>
-            <includeMdcKeyName>audit.result</includeMdcKeyName>
-            <includeMdcKeyName>failure.service</includeMdcKeyName>
-            <includeMdcKeyName>failure.component</includeMdcKeyName>
-            <includeMdcKeyName>failure.operation</includeMdcKeyName>
-            <includeMdcKeyName>failure.timestamp</includeMdcKeyName>
+            <!-- R3: Structured JSON con campos estandarizados -->
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <customFields>{"serviceName":"${APP_NAME}","serviceVersion":"2.0.0-SNAPSHOT","serviceEnvironment":"${SPRING_PROFILES_ACTIVE:-local}"}</customFields>
 
-            <!-- Incluir stack traces completos -->
-            <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
-                <maxDepthPerThrowable>30</maxDepthPerThrowable>
-                <maxLength>2048</maxLength>
-                <shortenedClassNameLength>20</shortenedClassNameLength>
-                <rootCauseFirst>true</rootCauseFirst>
-            </throwableConverter>
-        </encoder>
-    </appender>
+                <includeMdcKeyName>chunkId</includeMdcKeyName>
+                <includeMdcKeyName>fileName</includeMdcKeyName>
+                <includeMdcKeyName>chunkIndex</includeMdcKeyName>
+                <includeMdcKeyName>totalChunks</includeMdcKeyName>
+                <includeMdcKeyName>correlationId</includeMdcKeyName>
+                <includeMdcKeyName>traceId</includeMdcKeyName>
+                <includeMdcKeyName>spanId</includeMdcKeyName>
+                <includeMdcKeyName>processInstanceId</includeMdcKeyName>
+                <includeMdcKeyName>audit.action</includeMdcKeyName>
+                <includeMdcKeyName>audit.resource</includeMdcKeyName>
+                <includeMdcKeyName>audit.result</includeMdcKeyName>
+                <includeMdcKeyName>failure.service</includeMdcKeyName>
+                <includeMdcKeyName>failure.component</includeMdcKeyName>
+                <includeMdcKeyName>failure.operation</includeMdcKeyName>
+                <includeMdcKeyName>failure.timestamp</includeMdcKeyName>
 
-    <!-- ===== Async wrapper para Logstash (non-blocking) ===== -->
-    <appender name="ASYNC_LOGSTASH" class="ch.qos.logback.classic.AsyncAppender">
-        <appender-ref ref="LOGSTASH"/>
-        <queueSize>512</queueSize>
-        <discardingThreshold>0</discardingThreshold>
-        <includeCallerData>false</includeCallerData>
-        <neverBlock>true</neverBlock>
-    </appender>
+                <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                    <maxDepthPerThrowable>30</maxDepthPerThrowable>
+                    <maxLength>2048</maxLength>
+                    <shortenedClassNameLength>20</shortenedClassNameLength>
+                    <rootCauseFirst>true</rootCauseFirst>
+                </throwableConverter>
+            </encoder>
+        </appender>
 
-    <!-- ===== File Appender (fallback) ===== -->
-    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>logs/${APP_NAME}.log</file>
-        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>logs/${APP_NAME}-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
-            <maxFileSize>50MB</maxFileSize>
-            <maxHistory>30</maxHistory>
-            <totalSizeCap>500MB</totalSizeCap>
-        </rollingPolicy>
-        <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - [%X{correlationId}] %msg%n</pattern>
-        </encoder>
-    </appender>
+        <!-- Async wrapper para Logstash (non-blocking) -->
+        <appender name="ASYNC_LOGSTASH" class="ch.qos.logback.classic.AsyncAppender">
+            <appender-ref ref="LOGSTASH"/>
+            <queueSize>512</queueSize>
+            <discardingThreshold>0</discardingThreshold>
+            <includeCallerData>false</includeCallerData>
+            <neverBlock>true</neverBlock>
+        </appender>
 
-    <!-- ===== AUDIT Logger (R21) ===== -->
-    <appender name="AUDIT_LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
-        <destination>${LOGSTASH_HOST}:5001</destination>
-        <reconnectionDelay>5 seconds</reconnectionDelay>
-        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
-            <customFields>{"serviceName":"${APP_NAME}","type":"quantum-audit"}</customFields>
-        </encoder>
-    </appender>
+        <!-- File Appender (fallback) -->
+        <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>logs/${APP_NAME}.log</file>
+            <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+                <fileNamePattern>logs/${APP_NAME}-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+                <maxFileSize>50MB</maxFileSize>
+                <maxHistory>30</maxHistory>
+                <totalSizeCap>500MB</totalSizeCap>
+            </rollingPolicy>
+            <encoder>
+                <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - [%X{correlationId}] %msg%n</pattern>
+            </encoder>
+        </appender>
 
-    <logger name="AUDIT" level="INFO" additivity="false">
-        <appender-ref ref="AUDIT_LOGSTASH"/>
-        <appender-ref ref="CONSOLE"/>
-    </logger>
+        <!-- AUDIT Logger con Logstash (R21) -->
+        <appender name="AUDIT_LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+            <destination>${LOGSTASH_HOST}:5001</destination>
+            <reconnectionDelay>5 seconds</reconnectionDelay>
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <customFields>{"serviceName":"${APP_NAME}","type":"quantum-audit"}</customFields>
+            </encoder>
+        </appender>
+
+        <logger name="AUDIT" level="INFO" additivity="false">
+            <appender-ref ref="AUDIT_LOGSTASH"/>
+            <appender-ref ref="CONSOLE"/>
+        </logger>
+
+    </springProfile>
 
     <!-- ===== Spring profiles ===== -->
     <!-- Local: console + file + logstash (si disponible) -->
@@ -120,6 +122,10 @@
             <appender-ref ref="CONSOLE"/>
         </root>
         <logger name="com.quantum" level="INFO"/>
+        <!-- AUDIT solo a CONSOLE en OpenShift (sin Logstash) -->
+        <logger name="AUDIT" level="INFO" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+        </logger>
     </springProfile>
 
     <!-- Production: solo logstash + file -->
