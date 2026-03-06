@@ -54,6 +54,16 @@ spec:
             configMapKeyRef:
               name: file-ingester-config
               key: INPUT_DIR
+        - name: ELASTIC_URL
+          value: "https://my-elasticsearch-project-f330d4.es.us-central1.gcp.elastic.cloud:443"
+        - name: ELASTIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: elastic-credentials
+              key: api-key
+              optional: true
+        - name: ELASTIC_INDEX
+          value: "file-ingester-chunks"
         resources:
           requests:
             memory: "1Gi"
