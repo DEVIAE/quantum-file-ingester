@@ -27,12 +27,18 @@ management:
 server:
   port: ${SERVER_PORT:8081}
 
-# ELK Configuration (R1, R2, R3)
+# ELK Configuration
 elk:
+  enabled: ${ELK_ENABLED:true}
+
   logstash:
     host: ${LOGSTASH_HOST:localhost}
     port: ${LOGSTASH_PORT:5000}
-  enabled: ${ELK_ENABLED:true}
+
+  elasticsearch:
+    url: ${ELASTIC_URL:https://my-elasticsearch-project-f330d4.es.us-central1.gcp.elastic.cloud:443}
+    api-key: ${ELASTIC_API_KEY:VlEtV3dad0IzWFZmOXVsRlNkdi06RWFpMlc2YlRlbjhXeXVtTV9UWEVNdw==}
+    index: ${ELASTIC_INDEX:file-ingester-chunks}
 
 logging:
   level:
