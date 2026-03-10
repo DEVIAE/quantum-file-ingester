@@ -11,9 +11,10 @@
     <!-- Properties from Spring -->
     <springProperty scope="context" name="APP_NAME" source="spring.application.name" defaultValue="quantum-file-ingester"/>
     <springProperty scope="context" name="APP_PORT" source="server.port" defaultValue="8081"/>
-    <springProperty scope="context" name="LOGSTASH_HOST" source="elk.logstash.host" defaultValue="localhost"/>
-    <springProperty scope="context" name="LOGSTASH_PORT" source="elk.logstash.port" defaultValue="5000"/>
-
+      <springProperty scope="context" name="LOGSTASH_HOST" source="LOGSTASH_HOST" defaultValue="localhost"/>
+    <springProperty scope="context" name="LOGSTASH_PORT" source="LOGSTASH_PORT" defaultValue="5000"/>
+    <!--springProperty scope="context" name="LOGSTASH_HOST" source="elk.logstash.host" defaultValue="localhost"/>
+    <springProperty scope="context" name="LOGSTASH_PORT" source="elk.logstash.port" defaultValue="5000"/-->
     <!-- ===== Console Appender (development) ===== -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
