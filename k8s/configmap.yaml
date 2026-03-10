@@ -3,8 +3,12 @@ kind: ConfigMap
 metadata:
   name: file-ingester-config
 data:
-  INPUT_DIR: "/data/input"
-  CHUNK_SIZE: "10000"
-  AMQ_HOST: "amq-broker"
-  AMQ_PORT: "61616"
-  SERVER_PORT: "8081"
+  INPUT_DIR:      "/data/process"
+  PROCESS_DIR:    "/data/process"
+  PROCESSED_DIR:  "/data/processed"
+  FAILED_DIR:     "/data/failed"
+  OUTPUT_DIR:     "/data/output"
+  CHUNK_SIZE:     "10000"
+  AMQ_HOST:       "amq-broker"
+  AMQ_PORT:       "61616"
+  SERVER_PORT:    "8081"

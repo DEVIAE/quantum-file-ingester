@@ -88,3 +88,10 @@ spec:
             path: /actuator/health
             port: 8081
           periodSeconds: 5
+        volumeMounts:
+        - name: quantum-data
+          mountPath: /data
+      volumes:
+      - name: quantum-data
+        persistentVolumeClaim:
+          claimName: quantum-data-pvc

@@ -8,9 +8,11 @@ spring:
     password: ${AMQ_PASSWORD:admin}
 
 ingester:
-  input-dir: ${INPUT_DIR:input}
-  noop: ${FILE_NOOP:true}
-  chunk-size: ${CHUNK_SIZE:10000}
+  input-dir:      ${INPUT_DIR:/data/process}
+  processed-dir:  ${PROCESSED_DIR:/data/processed}
+  failed-dir:     ${FAILED_DIR:/data/failed}
+  output-dir:     ${OUTPUT_DIR:/data/output}
+  chunk-size:     ${CHUNK_SIZE:10000}
 
 management:
   endpoints:
