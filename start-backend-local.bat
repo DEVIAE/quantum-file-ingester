@@ -56,7 +56,19 @@ echo.
 echo [READY] Health: http://localhost:%BACKEND_PORT%/actuator/health
 echo.
 
-mvn spring-boot:run -Dspring-boot.run.profiles=local 2>&1 | powershell -NoProfile -Command "$input | Tee-Object -FilePath '%LOG_FILE%'"
+echo [INFO] Verificando agente Elastic APM...
+set APM_AGENT_DIR=%USERPROFILE%\.quantum-apm
+set APM_AGENT_JAR=%APM_AGENT_DIR%\elastic-apm-agent-1.51.0.jar
+if not exist "%APM_AGENT_DIR%" mkdir "%APM_AGENT_DIR%"
+if not exist "%APM_AGENT_JAR%" (
+    echo [INFO] Descargando Elastic APM agent 1.51.0...
+    %MAVEN_HOME%\bin\mvn.cmd dependency:copy -Dartifact=co.elastic.apm:elastic-apm-agent:1.51.0:jar -DoutputDirectory="%APM_AGENT_DIR%" -Dmdep.stripVersion=false -q
+)
+set "APM_JVM_ARGS=-javaagent:%APM_AGENT_JAR% -Delastic.apm.service_name=quantum-file-ingester -Delastic.apm.server_url=http://localhost:8200 -Delastic.apm.secret_token=quantum-apm-token -Delastic.apm.environment=local -Delastic.apm.application_packages=com.quantum"
+echo [INFO] APM activo: quantum-file-ingester → http://localhost:8200
+echo.
+
+mvn spring-boot:run -Dspring-boot.run.profiles=local "-Dspring-boot.run.jvmArguments=%APM_JVM_ARGS%" 2>&1 | powershell -NoProfile -Command "$input | Tee-Object -FilePath '%LOG_FILE%'"
 goto :eof
 
 :mkdir_if_missing

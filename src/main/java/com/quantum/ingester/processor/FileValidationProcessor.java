@@ -8,6 +8,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import co.elastic.apm.api.ElasticApm;
+import co.elastic.apm.api.Transaction;
 import java.io.File;
 
 @Component
@@ -20,6 +22,13 @@ public class FileValidationProcessor implements Processor {
     @Override
     public void process(Exchange exchange) throws Exception {
         String fileName = exchange.getIn().getHeader("CamelFileName", String.class);
+
+        // ── APM: etiquetar transaccion con nombre de archivo ──────────────────────
+        Transaction txn = ElasticApm.currentTransaction();
+        txn.setName("file-ingester: " + (fileName != null ? fileName : "unknown"));
+        txn.addLabel("filename", fileName != null ? fileName : "unknown");
+        txn.addLabel("stage", "3-file-ingester");
+        // ─────────────────────────────────────────────────────────────────────────
 
         // Use header for file size — do NOT read the body (avoids loading entire file
         // into memory)

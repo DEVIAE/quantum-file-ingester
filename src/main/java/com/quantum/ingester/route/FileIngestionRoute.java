@@ -10,6 +10,8 @@ import com.quantum.ingester.model.RendicionContext;
 import com.quantum.ingester.processor.ChunkMetadataProcessor;
 import com.quantum.ingester.processor.FileValidationProcessor;
 import com.quantum.ingester.processor.RecordPipelineProcessor;
+import co.elastic.apm.api.ElasticApm;
+import co.elastic.apm.api.Transaction;
 import org.apache.camel.LoggingLevel;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.jackson.JacksonDataFormat;
@@ -117,6 +119,13 @@ public class FileIngestionRoute extends RouteBuilder {
                 + "&moveFailed=" + failedDir + "/${file:name}")
                 .routeId("file-ingestion-route")
                 .log(LoggingLevel.INFO, "Started processing file: ${header.CamelFileName}")
+                .process(exchange -> {
+                    String fn = exchange.getIn().getHeader("CamelFileName", String.class);
+                    Transaction txn = ElasticApm.currentTransaction();
+                    txn.setName("file-ingester: " + fn);
+                    txn.addLabel("filename", fn);
+                    txn.addLabel("stage", "3-file-ingester");
+                })
                 .process(fileValidationProcessor)
                 // ── RecordPipeline: validate + calculate + DB insert + rendicion .ren ──
                 .process(recordPipelineProcessor)
