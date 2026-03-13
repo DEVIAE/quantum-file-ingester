@@ -5,8 +5,11 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.quantum.common.config.QueueConstants;
 import com.quantum.common.model.Chunk;
+import com.quantum.ingester.generator.RendicionGenerator;
+import com.quantum.ingester.model.RendicionContext;
 import com.quantum.ingester.processor.ChunkMetadataProcessor;
 import com.quantum.ingester.processor.FileValidationProcessor;
+import com.quantum.ingester.processor.RecordPipelineProcessor;
 import org.apache.camel.LoggingLevel;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.jackson.JacksonDataFormat;
@@ -26,6 +29,7 @@ import java.util.Map;
  * Ruta Camel de ingesta del archivo.
  *
  * <h2>Flujo</h2>
+ * 
  * <pre>
  *   /data/process/   (sftp-gateway deposita archivos estables aquí)
  *      │  readLock=changed — espera que el archivo deje de crecer
@@ -41,6 +45,8 @@ public class FileIngestionRoute extends RouteBuilder {
 
     private final ChunkMetadataProcessor chunkMetadataProcessor;
     private final FileValidationProcessor fileValidationProcessor;
+    private final RecordPipelineProcessor recordPipelineProcessor;
+    private final RendicionGenerator rendicionGenerator;
     private final ObjectMapper objectMapper;
 
     @Value("${ingester.input-dir:/data/process}")
@@ -56,9 +62,13 @@ public class FileIngestionRoute extends RouteBuilder {
     private String outputDir;
 
     public FileIngestionRoute(ChunkMetadataProcessor chunkMetadataProcessor,
-                              FileValidationProcessor fileValidationProcessor) {
+            FileValidationProcessor fileValidationProcessor,
+            RecordPipelineProcessor recordPipelineProcessor,
+            RendicionGenerator rendicionGenerator) {
         this.chunkMetadataProcessor = chunkMetadataProcessor;
         this.fileValidationProcessor = fileValidationProcessor;
+        this.recordPipelineProcessor = recordPipelineProcessor;
+        this.rendicionGenerator = rendicionGenerator;
         this.objectMapper = new ObjectMapper()
                 .registerModule(new JavaTimeModule())
                 .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
@@ -81,17 +91,24 @@ public class FileIngestionRoute extends RouteBuilder {
                 .handled(true)
                 .log(LoggingLevel.ERROR, "Failed to ingest file '${header.CamelFileName}': ${exception.message}")
                 .process(exchange -> {
-                    String fileName   = exchange.getIn().getHeader("CamelFileName", String.class);
-                    String errorMsg   = exchange.getProperty("CamelExceptionCaught", Exception.class) != null
-                            ? exchange.getProperty("CamelExceptionCaught", Exception.class).getMessage()
-                            : "Unknown error";
+                    String fileName = exchange.getIn().getHeader("CamelFileName", String.class);
+                    Exception cause = exchange.getProperty("CamelExceptionCaught", Exception.class);
+                    String errorMsg = cause != null ? cause.getMessage() : "Unknown error";
                     writeStatusFile(outputDir, fileName, "FAILED", errorMsg, 0, 0);
-                })
-                .to("jms:queue:" + QueueConstants.DLQ);
+                    // Envio DLQ best-effort: si el broker no esta disponible no debe crashear el
+                    // proceso
+                    try {
+                        exchange.getContext().createProducerTemplate()
+                                .sendBody("jms:queue:" + QueueConstants.DLQ, errorMsg);
+                    } catch (Exception dlqEx) {
+                        log.warn("[onException] DLQ no disponible (broker offline?): {}", dlqEx.getMessage());
+                    }
+                });
 
         // ── Ruta principal ────────────────────────────────────────────────────
-        // move        → archive del archivo original tras éxito
-        // moveFailed  → mover a /data/failed/ en caso de error (Camel lo maneja antes del onException)
+        // move → archive del archivo original tras éxito
+        // moveFailed → mover a /data/failed/ en caso de error (Camel lo maneja antes
+        // del onException)
         from("file:" + inputDir
                 + "?readLock=changed"
                 + "&readLockTimeout=30000"
@@ -101,46 +118,63 @@ public class FileIngestionRoute extends RouteBuilder {
                 .routeId("file-ingestion-route")
                 .log(LoggingLevel.INFO, "Started processing file: ${header.CamelFileName}")
                 .process(fileValidationProcessor)
+                // ── RecordPipeline: validate + calculate + DB insert + rendicion .ren ──
+                .process(recordPipelineProcessor)
                 .split(body().tokenize("\n", QueueConstants.DEFAULT_CHUNK_SIZE, false))
-                    .streaming()
-                    .stopOnException()
-                    .parallelProcessing(false)
-                    .process(chunkMetadataProcessor)
-                    .marshal(jacksonDataFormat)
-                    .convertBodyTo(String.class)
-                    .to("jms:queue:" + QueueConstants.CHUNK_QUEUE
-                            + "?deliveryPersistent=true"
-                            + "&explicitQosEnabled=true"
-                            + "&deliveryMode=2")
-                    .log(LoggingLevel.DEBUG, "Sent chunk ${header.chunkIndex} of ${header.CamelFileName}")
+                .streaming()
+                .parallelProcessing(false)
+                .process(chunkMetadataProcessor)
+                .marshal(jacksonDataFormat)
+                .convertBodyTo(String.class)
+                .process(exchange -> {
+                    // Envio JMS best-effort: si el broker no esta disponible, loguear y continuar
+                    try {
+                        exchange.getContext().createProducerTemplate()
+                                .sendBodyAndHeaders("jms:queue:" + QueueConstants.CHUNK_QUEUE
+                                        + "?deliveryPersistent=true&explicitQosEnabled=true&deliveryMode=2",
+                                        exchange.getIn().getBody(),
+                                        exchange.getIn().getHeaders());
+                    } catch (Exception jmsEx) {
+                        log.warn("[ChunkDispatch] JMS no disponible para chunk {}/{}: {}",
+                                exchange.getIn().getHeader("chunkIndex"),
+                                exchange.getIn().getHeader("CamelFileName"),
+                                jmsEx.getMessage());
+                    }
+                })
+                .log(LoggingLevel.DEBUG, "Sent chunk ${header.chunkIndex} of ${header.CamelFileName}")
                 .end()
                 .process(exchange -> {
-                    String fileName    = exchange.getIn().getHeader("CamelFileName", String.class);
-                    int    totalChunks = exchange.getIn().getHeader("totalChunks", 0, Integer.class);
+                    String fileName = exchange.getIn().getHeader("CamelFileName", String.class);
+                    int totalChunks = exchange.getIn().getHeader("totalChunks", 0, Integer.class);
                     chunkMetadataProcessor.cleanupCounter(fileName);
+                    // Generar archivo .ren a partir del contexto del pipeline
+                    RendicionContext ctx = exchange.getProperty("rendicionContext", RendicionContext.class);
+                    if (ctx != null) {
+                        rendicionGenerator.generate(outputDir, ctx);
+                    }
                     // Escribir status de ingesta exitosa en /data/output/
                     writeStatusFile(outputDir, fileName, "INGESTED", null, totalChunks, 0);
                 })
                 .log(LoggingLevel.INFO,
                         "Completed ingesting file: ${header.CamelFileName} into ${header.totalChunks} chunks"
-                        + " → moved to " + processedDir);
+                                + " → moved to " + processedDir);
     }
 
     /** Escribe un archivo JSON de estado en el directorio de salida. */
     private void writeStatusFile(String dir, String fileName, String status,
-                                  String errorMessage, int totalChunks, int failedChunks) {
+            String errorMessage, int totalChunks, int failedChunks) {
         try {
             Files.createDirectories(Paths.get(dir));
-            String baseName  = fileName != null ? fileName : "unknown";
+            String baseName = fileName != null ? fileName : "unknown";
             String statusExt = "FAILED".equals(status) ? ".error.json" : ".ingested.json";
-            Path   outFile   = Paths.get(dir, baseName + statusExt);
+            Path outFile = Paths.get(dir, baseName + statusExt);
 
             Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("fileName",     baseName);
-            payload.put("status",       status);
-            payload.put("timestamp",    Instant.now().toString());
-            payload.put("service",      "quantum-file-ingester");
-            payload.put("totalChunks",  totalChunks);
+            payload.put("fileName", baseName);
+            payload.put("status", status);
+            payload.put("timestamp", Instant.now().toString());
+            payload.put("service", "quantum-file-ingester");
+            payload.put("totalChunks", totalChunks);
             payload.put("failedChunks", failedChunks);
             if (errorMessage != null) {
                 payload.put("error", errorMessage);
@@ -155,4 +189,3 @@ public class FileIngestionRoute extends RouteBuilder {
         }
     }
 }
-

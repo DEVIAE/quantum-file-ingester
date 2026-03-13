@@ -22,8 +22,8 @@
         </encoder>
     </appender>
 
-    <!-- ===== Logstash & Audit appenders: solo para perfiles NO openshift ===== -->
-    <springProfile name="!openshift">
+    <!-- ===== Logstash & Audit appenders: solo para dev, staging, prod ===== -->
+    <springProfile name="dev | staging | prod | production">
 
         <!-- Logstash TCP Appender (ELK) -->
         <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
@@ -100,13 +100,16 @@
     </springProfile>
 
     <!-- ===== Spring profiles ===== -->
-    <!-- Local: console + file + logstash (si disponible) -->
+    <!-- Local: console + file (sin Logstash - ELK no disponible en local) -->
     <springProfile name="local,default">
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
             <appender-ref ref="FILE"/>
-            <appender-ref ref="ASYNC_LOGSTASH"/>
         </root>
+        <!-- Audit solo a consola en local -->
+        <logger name="AUDIT" level="INFO" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+        </logger>
     </springProfile>
 
     <!-- Dev/Staging: logstash + file -->

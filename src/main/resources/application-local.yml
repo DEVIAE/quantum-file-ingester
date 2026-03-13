@@ -1,0 +1,39 @@
+# ============================================================================
+# Perfil LOCAL - quantum-file-ingester en Windows sin OpenShift
+# Uso: mvn spring-boot:run -Dspring-boot.run.profiles=local
+#
+# PREREQUISITO: quantum-format-normalizer debe estar corriendo primero.
+#   El broker Artemis embebido de ese servicio escucha en tcp://localhost:61616.
+# ============================================================================
+
+spring:
+  artemis:
+    broker-url: tcp://localhost:61616   # broker embebido en format-normalizer
+    user: admin
+    password: admin
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/quantum_cotizaciones?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8
+    username: root
+    password: 12345678
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+
+ingester:
+  input-dir:     E:/data/normalized     # donde format-normalizer escribe los JSONL
+  processed-dir: E:/data/processed
+  failed-dir:    E:/data/failed
+  output-dir:    E:/data/output
+  chunk-size:    10000                  # lineas por chunk enviado a JMS
+
+elk:
+  enabled: false
+
+logging:
+  level:
+    com.quantum: DEBUG
+    org.apache.camel: INFO
+    org.apache.activemq: WARN

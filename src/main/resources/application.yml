@@ -8,7 +8,7 @@ spring:
     password: ${AMQ_PASSWORD:admin}
 
 ingester:
-  input-dir:      ${INPUT_DIR:/data/process}
+  input-dir:      ${INPUT_DIR:/data/normalized}
   processed-dir:  ${PROCESSED_DIR:/data/processed}
   failed-dir:     ${FAILED_DIR:/data/failed}
   output-dir:     ${OUTPUT_DIR:/data/output}

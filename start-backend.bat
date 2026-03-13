@@ -114,7 +114,7 @@ set "PS_SCRIPT=%TEMP%\quantum-ingester-run.ps1"
     echo $logFile = '!LOG_FULL!'
     echo Write-Host "[INFO] Ejecutando mvn spring-boot:run..."
     echo Write-Host "[INFO] Log: $logFile"
-    echo ^& mvn spring-boot:run 2^>^&1 ^| ForEach-Object {
+    echo ^& mvn spring-boot:run "-Dspring-boot.run.profiles=local" 2^>^&1 ^| ForEach-Object {
     echo     $line = $_
     echo     Write-Host $line
     echo     $line ^| Out-File -FilePath $logFile -Append -Encoding utf8

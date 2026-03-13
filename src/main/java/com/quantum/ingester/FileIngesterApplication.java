@@ -29,6 +29,6 @@ public class FileIngesterApplication {
         LoggingUtils.initServiceContext(appName, "2.0.0-SNAPSHOT", activeProfile);
         // R21: Audit service start
         LoggingUtils.audit("SERVICE_START", appName, "SUCCESS", "File Ingester started");
-        log.info("Quantum File Ingester started with ELK logging enabled");
+        log.info("Quantum File Ingester started (profile: {})", activeProfile);
     }
 }
